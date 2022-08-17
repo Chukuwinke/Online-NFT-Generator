@@ -1,4 +1,4 @@
-import React, { useState, useContext} from "react";
+import React, { useState, useContext, useEffect} from "react";
 
 import { UserContext } from "./Context/Mycontext";
 function Form() {
@@ -6,35 +6,46 @@ function Form() {
 
   const [imageUpload, setImageupload] = useState([]);
   const [layerName, setLayername] = useState(null);
+  const [imagePackage, setImagePackage] = useState([]);
 
+
+//
   const addLayer = () => {
-    const rawImageData = [];
+    // const rawImageData = [];
+    const selectedImageData = []
     if (!imageUpload.length || layerName == null) return;
-    console.log("Before: ", imageUpload[0]);
-    imageUpload.forEach((image) => {
-      const imageRef = ref(
-        storage,
-        `project-name/layers/${layerName}/${image.name}`
-      );
+    //console.log("Before: ", imageUpload[0]);
+    setImagePackage(prev => [...prev, {layerName, imageUpload}])
 
-      rawImageData.push({ imageRef, image });
-    });
-
-    setLayersArr((prev) => [...prev, { layerName, rawImageData }]);
   };
 
-  const uploadAll = async () => {
-    const uploadData = layersArr.map((addedLayer) => {
-      const { rawImageData } = addedLayer;
 
-      rawImageData.forEach((rawData) => {
-        const { imageRef, image } = rawData;
-        uploadBytes(imageRef, image);
-      });
-    });
-    await Promise.all(uploadData);
-    
+// CREATES PACKAGE FROM SELECTED IMAGES AND FOLDER NAME TO BE STORED IN FIREBASE STORAGE
+  const createPackage = async () => {
+    const layersPackage = [];
+    for(let i =0; i <imagePackage.length; i++){
+      //console.log(imagePackage[i])
+      const {layerName, imageUpload} = imagePackage[i];
+
+      console.log(layerName, imageUpload)
+      const rawImageData = [];
+
+      for(let j = 0; j < imageUpload.length; j++){
+        const image = imageUpload[j]
+        const imageRef = ref(
+          storage,
+          `project-name/layers/${layerName}/${image.name}`
+        );
+ 
+        rawImageData.push({ imageRef, image });
+      }
+      layersPackage.push({layerName, rawImageData})
+    }
+   
+    setLayersArr([...layersPackage])
   };
+
+
   
   const insertImage = (e) => {
     if (e.target.className == "layer-folder") {
@@ -44,6 +55,27 @@ function Form() {
     }
   };
 
+  //console.log(layersArr)
+
+  // USEEFFECTS ACTIVATES WHEN LAYERS PACKAGE HAS BEEN CREATED AND THEN UPLOADS THE DATA TO STORAGE
+  useEffect(() =>{
+    async function uploadAll(){
+      const uploadData = layersArr.map((layer) => {
+        const { rawImageData } = layer;
+
+        rawImageData.forEach((rawData) => {
+          const { imageRef, image } = rawData;
+          uploadBytes(imageRef, image);
+        });
+      });
+      await Promise.all(uploadData);
+    }
+
+    if(layersArr.length !== 0){
+      //console.log(layersArr)
+      uploadAll();
+    }
+  })
   return (
     <>
       <div>
@@ -55,7 +87,7 @@ function Form() {
           multiple
         />
         <button onClick={addLayer}> ADD </button>
-        <button onClick={uploadAll}> show all </button>
+        <button onClick={createPackage}> show all </button>
       </div>
     </>
   );
